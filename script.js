@@ -469,7 +469,7 @@ db.ref("/data/weight").limitToLast(20).on("value", (snapshot) => {
     
     // Update Gauge: Logic is inverted for feed (Red when LOW), 
     // but for the UI bar we'll show fill level relative to 5kg
-    updateGauge(feedGaugeEl, latest, 1000, 4000, 5000);
+    updateGauge(feedGaugeEl, latest, 10, 40, 100);
 
     rebuildChart(feedChart, entries, v => Math.max(0, parseFloat(v)));
     updateStats();

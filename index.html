@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — Smart Poultry</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    /* ── Page background ── */
+    .welcome-body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      /*background: linear-gradient(135deg, #0a1628 0%, #1b3a1e 100%);*/
+      font-family: 'Poppins', sans-serif;
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    }
+
+    .welcome-container {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── Card ── */
+    .welcome-card {
+      background: #1b1b2b;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 20px;
+      padding: 44px 40px 36px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+    }
+
+    /* ── Header ── */
+    .welcome-card h1 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 600;
+      color: #e8f5e9;
+      margin: 0 0 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .login-tagline {
+      text-align: center;
+      font-size: 12px;
+      color: #81c784;
+      margin: 0 0 32px;
+      letter-spacing: 0.5px;
+    }
+
+    /* ── Field group ── */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .field-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .field-wrap label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #90a4ae;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      padding-left: 2px;
+    }
+
+    .field-wrap input {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      padding: 13px 16px;
+      color: #eee;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s, background 0.2s;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .field-wrap input::placeholder { color: #4a5568; }
+    .field-wrap input:focus {
+      border-color: #43a047;
+      background: rgba(255,255,255,0.09);
+    }
+
+    /* ── Login button ── */
+    .enter-btn {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #2e7d32, #1565c0);
+      color: #fff;
+      font-family: 'Poppins', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.5px;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .enter-btn:hover    { opacity: 0.88; transform: translateY(-1px); }
+    .enter-btn:active   { transform: translateY(0); }
+    .enter-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    /* ── Error / success message ── */
+    #errorMsg {
+      min-height: 20px;
+      margin-top: 16px;
+      font-size: 13px;
+      text-align: center;
+      border-radius: 8px;
+      padding: 0;
+      transition: all 0.2s;
+    }
+    #errorMsg:not(:empty) {
+      padding: 10px 14px;
+      background: rgba(255,60,60,0.1);
+      color: #ff6b6b;
+    }
+    #errorMsg.success:not(:empty) {
+      background: rgba(0,200,100,0.1);
+      color: #00c864;
+    }
+
+    /* ── Footer note ── */
+    .login-footer {
+      text-align: center;
+      margin-top: 24px;
+      font-size: 11px;
+      color: #3a4a5a;
+    }
+  </style>
+</head>
+<body class="welcome-body">
+
+  <div class="welcome-container">
+    <div class="welcome-card">
+
+      <!-- Header -->
+      <h1>🐔 Smart Poultry Monitor</h1>
+      <p class="login-tagline">Farm Management Dashboard</p>
+
+      <!-- Fields -->
+      <div class="field-group">
+
+        <div class="field-wrap">
+          <label for="email">Email Address</label>
+          <input
+            type="email"
+            id="email"
+            placeholder="e.g. farmer@poultry.com"
+            autocomplete="email"
+          />
+        </div>
+
+        <div class="field-wrap">
+          <label for="password">Password</label>
+          <input
+            type="password"
+            id="password"
+            placeholder="Enter your password"
+            autocomplete="current-password"
+            onkeydown="if(event.key==='Enter') login()"
+          />
+        </div>
+
+      </div>
+
+      <!-- Button -->
+      <button class="enter-btn" id="loginBtn" onclick="login()">
+        Login
+      </button>
+
+      <!-- Message -->
+      <p id="errorMsg"></p>
+
+      <!-- Footer -->
+      <p class="login-footer">Access restricted to authorised personnel only</p>
+
+    </div>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+
+</body>
+</html>

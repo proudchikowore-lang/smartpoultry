@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poultry House Smart Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        /* Linear Gauge Styles */
+        .gauge-container {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .gauge-bar {
+            width: 100%;
+            height: 8px;
+            background: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gauge-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease, background-color 0.3s ease;
+            position: relative;
+        }
+
+        .gauge-fill.low {
+            background: linear-gradient(90deg, #28a745, #34ce57);
+        }
+
+        .gauge-fill.medium {
+            background: linear-gradient(90deg, #ffc107, #ffcd39);
+        }
+
+        .gauge-fill.high {
+            background: linear-gradient(90deg, #dc3545, #e4606d);
+        }
+
+        body.dark-mode .gauge-bar {
+            background: #0f3460;
+        }
+
+        /* AI Assistant Styles */
+        .ai-assistant-button {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .ai-assistant-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+        }
+
+        .ai-chat-container {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 999;
+            overflow: hidden;
+        }
+
+        .ai-chat-container.active {
+            display: flex;
+        }
+
+        .ai-chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .ai-chat-header h3 {
+            margin: 0;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ai-chat-close {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 1;
+        }
+
+        .ai-chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .ai-message {
+            margin-bottom: 16px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .ai-message.user {
+            flex-direction: row-reverse;
+        }
+
+        .ai-message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .ai-message.assistant .ai-message-avatar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .ai-message.user .ai-message-avatar {
+            background: #e9ecef;
+        }
+
+        .ai-message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+        }
+
+        .ai-message.assistant .ai-message-content {
+            background: white;
+            border-bottom-left-radius: 4px;
+        }
+
+        .ai-message.user .ai-message-content {
+            background: #667eea;
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .ai-message.system .ai-message-content {
+            background: #fff3cd;
+            color: #856404;
+            max-width: 100%;
+            text-align: center;
+            font-size: 13px;
+        }
+
+        .ai-chat-input-container {
+            padding: 16px;
+            background: white;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .ai-chat-input-wrapper {
+            display: flex;
+            gap: 8px;
+        }
+
+        .ai-chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            font-family: 'Poppins', sans-serif;
+            font-size: 14px;
+        }
+
+        .ai-chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .ai-chat-send {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .ai-chat-send:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .ai-chat-send:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .ai-typing-indicator {
+            display: flex;
+            gap: 4px;
+            padding: 12px 16px;
+        }
+
+        .ai-typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #667eea;
+            animation: typing 1.4s infinite;
+        }
+
+        .ai-typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .ai-typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .ai-chat-container {
+                width: calc(100vw - 40px);
+                height: calc(100vh - 140px);
+                right: 20px;
+                bottom: 90px;
+            }
+        }
+
+        /* Dark mode adjustments */
+        body.dark-mode .ai-chat-container {
+            background: #1a1a2e;
+        }
+
+        body.dark-mode .ai-chat-messages {
+            background: #16213e;
+        }
+
+        body.dark-mode .ai-message.assistant .ai-message-content {
+            background: #0f3460;
+            color: #e9ecef;
+        }
+
+        body.dark-mode .ai-chat-input-container {
+            background: #1a1a2e;
+            border-top-color: #0f3460;
+        }
+
+        body.dark-mode .ai-chat-input {
+            background: #16213e;
+            border-color: #0f3460;
+            color: #e9ecef;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header">
+        <div class="header-container">
+           <h1>
+    <span>🐔</span>
+    <span class="animated-text">POULTRY HOUSE SMART MONITORING</span>
+</h1>
+            <label class="theme-toggle">
+                <input type="checkbox" id="themeSwitch">
+                <span class="toggle-label">🌙</span>
+            </label>
+            <button id="logoutBtn" class="export-btn">Logout</button>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+
+            <!-- ── Sensor Cards with Linear Gauges ── -->
+            <div class="dashboard">
+
+                <div class="card">
+                    <div class="card-icon">🌡</div>
+                    <div class="card-info">
+                        <h2>Temperature</h2>
+                        <p id="temperature">-- °C</p>
+                        <div class="gauge-container">
+                            <div class="gauge-bar">
+                                <div id="tempGauge" class="gauge-fill low" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">💧</div>
+                    <div class="card-info">
+                        <h2>Humidity</h2>
+                        <p id="humidity">-- %</p>
+                        <div class="gauge-container">
+                            <div class="gauge-bar">
+                                <div id="humGauge" class="gauge-fill low" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">💡</div>
+                    <div class="card-info">
+                        <h2>Light Level</h2>
+                        <p id="light">-- %</p>
+                        <div class="gauge-container">
+                            <div class="gauge-bar">
+                                <div id="lightGauge" class="gauge-fill low" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-icon">🌾</div>
+                    <div class="card-info">
+                        <h2>Feed Level</h2>
+                        <p id="feed">-- g</p>
+                        <div class="gauge-container">
+                            <div class="gauge-bar">
+                                <div id="feedGauge" class="gauge-fill low" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+
+            </div><br>
+
+            <h text-align: center;>Statistics Panel</h>
+
+            <!-- ── Statistics Panel ── -->
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <h3>Temp °C (min/max/avg)</h3>
+                    <p id="statTemp">-- / -- / --</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Humidity % (min/max/avg)</h3>
+                    <p id="statHum">-- / -- / --</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Light % (min/max/avg)</h3>
+                    <p id="statLight">-- / -- / --</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Feed g (min/max/avg)</h3>
+                    <p id="statFeed">-- / -- / --</p>
+                </div>
+            </div>
+
+            
+            <!-- ── Charts ── -->
+            <section class="graphs">
+                <div class="chart-wrapper">
+                    <h3>Temperature (°C)</h3>
+                    <canvas id="tempChart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <h3>Humidity (%)</h3>
+                    <canvas id="humChart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <h3>Light Level (%)</h3>
+                    <canvas id="lightChart"></canvas>
+                </div>
+                <div class="chart-wrapper">
+                    <h3>Feed Level (g)</h3>
+                    <canvas id="feedChart"></canvas>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <p>© 2026 Smart Poultry Dashboard</p>
+    </footer>
+
+    <!-- AI Assistant -->
+    <button class="ai-assistant-button" id="aiAssistantToggle">🤖</button>
+    
+    <div class="ai-chat-container" id="aiChatContainer">
+        <div class="ai-chat-header">
+            <h3>🤖 AI Poultry Assistant</h3>
+            <button class="ai-chat-close" id="aiChatClose">×</button>
+        </div>
+        <div class="ai-chat-messages" id="aiChatMessages">
+            <div class="ai-message assistant">
+                <div class="ai-message-avatar">🤖</div>
+                <div class="ai-message-content">
+                    Hello! I'm your AI poultry assistant. I can help you monitor conditions, provide recommendations, and answer questions about your poultry house. How can I help you today?
+                </div>
+            </div>
+        </div>
+        <div class="ai-chat-input-container">
+            <div class="ai-chat-input-wrapper">
+                <input 
+                    type="text" 
+                    id="aiChatInput" 
+                    class="ai-chat-input" 
+                    placeholder="Ask me anything about your poultry house..."
+                    autocomplete="off"
+                >
+                <button id="aiChatSend" class="ai-chat-send">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Alarm Sound -->
+    <audio id="alarmSound" src="https://www.soundjay.com/buttons/beep-07.wav"></audio>
+
+    <!-- Firebase compat SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+    <script type="module" src="auth-check.js"></script>
+    <!-- Chart.js UMD (provides global `Chart` required by script.js) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="script.js"></script>
+    <script src="nav.js"></script>
+    <script src="ai-assistant.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,480 @@
+// ─── Firebase Init (compat SDK) ───────────────────────────────────────────────
+const firebaseConfig = {
+  databaseURL: "https://poutry-6dd09-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ─── DOM Elements ─────────────────────────────────────────────────────────────
+const temperatureEl  = document.getElementById("temperature");
+const humidityEl     = document.getElementById("humidity");
+const lightEl        = document.getElementById("light");
+const feedEl        = document.getElementById("feed");
+const doorEl         = document.getElementById("door");
+const toastContainer = document.getElementById("toastContainer");
+const alarmSound     = document.getElementById("alarmSound");
+
+// ================================
+// Toast Notification
+// ================================
+function showToast(message, type = "success") {
+    const toast = document.createElement("div");
+    toast.classList.add("toast", `toast-${type}`);
+
+    let icon = "ℹ";
+    if (type === "danger")  icon = "🚨";
+    if (type === "warning") icon = "⚠";
+    if (type === "success") icon = "✅";
+
+    toast.innerHTML = `
+        <div class="message">
+            <span>${icon}</span>
+            <span>${message}</span>
+        </div>
+        <span class="close-btn">&times;</span>
+    `;
+    toastContainer.appendChild(toast);
+
+    if (type === "danger") alarmSound.play();
+
+    toast.querySelector(".close-btn").onclick = () => toast.remove();
+    setTimeout(() => toast.remove(), 5000);
+}
+
+// ====== Data Export ======
+function exportDataToCSV() {
+    if (!tempChart || !humChart || !lightChart || !feedChart) {
+        showToast("No data to export yet!", "warning");
+        return;
+    }
+
+    const rows = [["Time", "Temperature (°C)", "Humidity (%)", "Light Level (%)", "Feed Weight (g)"]];
+    const maxLength = Math.max(
+        tempChart.data.labels.length,
+        humChart.data.labels.length,
+        lightChart.data.labels.length,
+        feedChart.data.labels.length
+    );
+
+    for (let i = 0; i < maxLength; i++) {
+        rows.push([
+            tempChart.data.labels[i]               || "",
+            tempChart.data.datasets[0].data[i]     || "",
+            humChart.data.datasets[0].data[i]      || "",
+            lightChart.data.datasets[0].data[i]    || "",
+            feedChart.data.datasets[0].data[i]     || ""
+        ]);
+    }
+
+    const csvContent = rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.setAttribute("href", URL.createObjectURL(blob));
+    link.setAttribute("download", `poultry-data-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Data exported successfully!", "success");
+}
+
+// ====== Event Listeners ======
+window.addEventListener('load', () => {
+    const exportBtn = document.getElementById('exportBtn');
+    if (exportBtn)  exportBtn.addEventListener('click', exportDataToCSV);
+
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn)  settingsBtn.addEventListener('click', openSettings);
+
+    const closeModal = document.querySelector('.close-modal');
+    if (closeModal)  closeModal.addEventListener('click', closeSettings);
+
+    const settingsForm = document.getElementById('settingsForm');
+    if (settingsForm) {
+        settingsForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            thresholds.tempMin  = parseFloat(document.getElementById('thresholdTempMin').value);
+            thresholds.tempMax  = parseFloat(document.getElementById('thresholdTempMax').value);
+            thresholds.humMin   = parseFloat(document.getElementById('thresholdHumMin').value);
+            thresholds.humMax   = parseFloat(document.getElementById('thresholdHumMax').value);
+            thresholds.lightMin = parseFloat(document.getElementById('thresholdLightMin').value);
+            thresholds.lightMax = parseFloat(document.getElementById('thresholdLightMax').value);
+            thresholds.feedMin  = parseFloat(document.getElementById('thresholdFeedMin').value);
+            thresholds.feedMax  = parseFloat(document.getElementById('thresholdFeedMax').value);
+            localStorage.setItem('thresholds', JSON.stringify(thresholds));
+            showToast('Thresholds saved', 'success');
+            closeSettings();
+        });
+    }
+
+    window.addEventListener('click', (evt) => {
+        const modal = document.getElementById('settingsModal');
+        if (evt.target === modal) closeSettings();
+    });
+});
+
+// ====== Theme ======
+const themeSwitch = document.getElementById('themeSwitch');
+
+function applyTheme(isLight) {
+    if (isLight) {
+        document.body.classList.add('light');
+        themeSwitch.checked = true;
+        document.querySelector('.toggle-label').textContent = '☀️';
+        localStorage.setItem('theme', 'light');
+    } else {
+        document.body.classList.remove('light');
+        themeSwitch.checked = false;
+        document.querySelector('.toggle-label').textContent = '🌙';
+        localStorage.setItem('theme', 'dark');
+    }
+}
+applyTheme(localStorage.getItem('theme') === 'light');
+themeSwitch.addEventListener('change', () => applyTheme(themeSwitch.checked));
+
+// ====== Thresholds ======
+const defaultThresholds = {
+    tempMin:  15,  tempMax:  35,   // typical poultry house range °C
+    humMin:   40,  humMax:   80,   // % relative humidity
+    lightMin: 20,  lightMax: 100,  // brightness % from ESP32
+    feedMin:  10,  feedMax:  100                 // grams — alert when hopper exceeds limit
+};
+let thresholds = JSON.parse(localStorage.getItem('thresholds') || 'null') || defaultThresholds;
+
+function openSettings() {
+    document.getElementById('settingsModal').style.display = 'block';
+    document.getElementById('thresholdTempMin').value  = thresholds.tempMin;
+    document.getElementById('thresholdTempMax').value  = thresholds.tempMax;
+    document.getElementById('thresholdHumMin').value   = thresholds.humMin;
+    document.getElementById('thresholdHumMax').value   = thresholds.humMax;
+    document.getElementById('thresholdLightMin').value = thresholds.lightMin;
+    document.getElementById('thresholdLightMax').value = thresholds.lightMax;
+    document.getElementById('thresholdFeedMin').value  = thresholds.feedMin;
+    document.getElementById('thresholdFeedMax').value  = thresholds.feedMax;
+}
+function closeSettings() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+// Threshold check — called after each Firebase update
+function checkThresholds() {
+    const temp  = parseFloat(temperatureEl.textContent) || 0;
+    const hum   = parseFloat(humidityEl.textContent)    || 0;
+    const light = parseFloat(lightEl.textContent)       || 0;
+    const feed  = parseFloat(feedEl.textContent)       || 0;
+
+    if (temp < thresholds.tempMin || temp > thresholds.tempMax)
+        showToast(`Temperature out of range: ${temp.toFixed(1)} °C`, "danger");
+
+    if (hum < thresholds.humMin || hum > thresholds.humMax)
+        showToast(`Humidity out of range: ${hum.toFixed(1)} %`, "warning");
+
+    if (light < thresholds.lightMin || light > thresholds.lightMax)
+        showToast(`Light level out of range: ${light} %`, "warning");
+
+    if (feed < thresholds.feedMin || feed > thresholds.feedMax)
+        showToast(`feed level out of range: ${light} %`, "warning");
+
+}
+
+// ====== Charts ======
+let tempChart, humChart, lightChart, feedChart;
+
+function initChart() {
+    const chartDefaults = (label, color, yLabel = '') => ({
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label,
+                borderColor: color,
+                backgroundColor: color.replace(')', ',0.2)').replace('rgb', 'rgba'),
+                tension: 0.3,
+                data: []
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { type: 'category', ticks: { maxRotation: 45, minRotation: 45 } },
+                y: { beginAtZero: false, title: { display: !!yLabel, text: yLabel } }
+            }
+        }
+    });
+
+    tempChart = new Chart(document.getElementById('tempChart').getContext('2d'),
+        chartDefaults('Temperature (°C)', '#ff4d4d', '°C'));
+
+    humChart = new Chart(document.getElementById('humChart').getContext('2d'),
+        chartDefaults('Humidity (%)', '#00ccff', '%'));
+
+    lightChart = new Chart(document.getElementById('lightChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Light Level (%)',
+                borderColor: '#ffcc00',
+                backgroundColor: 'rgba(255,204,0,0.2)',
+                tension: 0.3,
+                data: []
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { type: 'category', ticks: { maxRotation: 45, minRotation: 45 } },
+                y: { min: 0, max: 100, title: { display: true, text: 'Brightness (%)' } }
+            }
+        }
+    });
+
+    feedChart = new Chart(document.getElementById('feedChart').getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Feed Weight (g)',
+                borderColor: '#ff9933',
+                backgroundColor: 'rgba(255,153,51,0.2)',
+                tension: 0.3,
+                data: []
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { type: 'category', ticks: { maxRotation: 45, minRotation: 45 } },
+                y: { beginAtZero: true, title: { display: true, text: 'grams' } }
+            }
+        }
+    });
+}
+
+window.addEventListener('load', initChart);
+
+// ====== Stats ======
+function calculateStats(array) {
+    if (!array.length) return { min: '--', max: '--', avg: '--' };
+    const nums = array.map(Number);
+    return {
+        min: Math.min(...nums).toFixed(1),
+        max: Math.max(...nums).toFixed(1),
+        avg: (nums.reduce((a, b) => a + b, 0) / nums.length).toFixed(1)
+    };
+}
+
+function updateStats() {
+    if (!tempChart || !humChart || !lightChart || !feedChart) return;
+    const t = calculateStats(tempChart.data.datasets[0].data);
+    const h = calculateStats(humChart.data.datasets[0].data);
+    const l = calculateStats(lightChart.data.datasets[0].data);
+    const f = calculateStats(feedChart.data.datasets[0].data);
+    document.getElementById('statTemp').textContent  = `${t.min} / ${t.max} / ${t.avg}`;
+    document.getElementById('statHum').textContent   = `${h.min} / ${h.max} / ${h.avg}`;
+    document.getElementById('statLight').textContent = `${l.min} / ${l.max} / ${l.avg}`;
+    document.getElementById('statFeed').textContent  = `${f.min} / ${f.max} / ${f.avg}`;
+}
+
+// ================================
+// Helper: rebuild chart from Firebase snapshot entries
+// ================================
+function rebuildChart(chart, entries, parseFn) {
+    const now = new Date().toLocaleTimeString();
+    chart.data.labels           = entries.map(([, ], i) =>
+        i === entries.length - 1 ? now : `T-${entries.length - 1 - i}`
+    );
+    chart.data.datasets[0].data = entries.map(([, v]) => parseFn(v));
+    chart.update();
+}
+
+// ════════════════════════════════════════════
+// REAL Firebase Listeners
+// ════════════════════════════════════════════
+
+// ── Temperature (DHT22) ──
+db.ref("/data/temperature").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !tempChart) return;
+
+    const entries = Object.entries(raw);
+    rebuildChart(tempChart, entries, v => parseFloat(v));
+
+    const latest = parseFloat(entries[entries.length - 1][1]);
+    temperatureEl.textContent = latest.toFixed(1) + " °C";
+
+    updateStats();
+    checkThresholds();
+});
+
+// ── Humidity (DHT22) ──
+db.ref("/data/humidity").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !humChart) return;
+
+    const entries = Object.entries(raw);
+    rebuildChart(humChart, entries, v => parseFloat(v));
+
+    const latest = parseFloat(entries[entries.length - 1][1]);
+    humidityEl.textContent = latest.toFixed(1) + " %";
+
+    updateStats();
+    checkThresholds();
+});
+
+// ── Light (MH-Sensor) ──
+db.ref("/data/light").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !lightChart) return;
+
+    const entries = Object.entries(raw);
+    rebuildChart(lightChart, entries, v => parseInt(v, 10));
+
+    const latest = parseInt(entries[entries.length - 1][1], 10);
+    lightEl.textContent = latest + " %";
+
+    updateStats();
+    checkThresholds();
+});
+
+// ── Feed Weight (HX711) ──
+db.ref("/data/weight").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !feedChart) return;
+
+    const entries = Object.entries(raw);
+    rebuildChart(feedChart, entries, v => Math.max(0, parseFloat(v)));
+
+    const latest = Math.max(0, parseFloat(entries[entries.length - 1][1]));
+    feedEl.textContent = latest.toFixed(1) + " g";
+
+    updateStats();
+    checkThresholds();
+});
+
+// ════════════════════════════════════════════
+// Door Status — simulated (no sensor yet)
+// When a door sensor is added to ESP32, replace
+// this with: db.ref("/data/door_status").on(...)
+// ════════════════════════════════════════════
+/*function simulateDoor() {
+    const doorOpen = Math.random() > 0.8;
+    if (doorOpen) {
+        doorEl.textContent = "OPEN";
+        doorEl.className   = "danger-text";
+        showToast("Door opened unexpectedly!", "danger");
+    } else {
+        doorEl.textContent = "Closed";
+        doorEl.className   = "safe-text";
+    }
+} 
+
+setInterval(simulateDoor, 5000); */
+
+// ─── Gauge Elements ───────────────────────────────────────────────────────────
+const tempGaugeEl  = document.getElementById("tempGauge");
+const humGaugeEl   = document.getElementById("humGauge");
+const lightGaugeEl = document.getElementById("lightGauge");
+const feedGaugeEl  = document.getElementById("feedGauge");
+
+// ====== Gauge Update Logic ======
+/**
+ * @param {HTMLElement} element - The gauge-fill element
+ * @param {number} value - The current value
+ * @param {number} min - Lower threshold for "medium" warning
+ * @param {number} max - Upper threshold for "high" alert
+ * @param {number} scale - Max possible value for width (e.g., 100 for %)
+ */
+function updateGauge(element, value, min, max, scale = 100) {
+    if (!element) return;
+    
+    // Calculate width percentage relative to scale
+    const width = Math.min(Math.max((value / scale) * 100, 0), 100);
+    element.style.width = `${width}%`;
+
+    // Update colors based on thresholds
+    element.classList.remove('low', 'medium', 'high');
+    if (value < min) {
+        element.classList.add('low'); // Green/Safe
+    } else if (value >= min && value <= max) {
+        element.classList.add('medium'); // Warning
+    } else {
+        element.classList.add('high'); // Critical
+    }
+}
+
+// ════════════════════════════════════════════
+// Updated Firebase Listeners
+// ════════════════════════════════════════════
+
+// ── Temperature (DHT22) ──
+db.ref("/data/temperature").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !tempChart) return;
+    const entries = Object.entries(raw);
+    const latest = parseFloat(entries[entries.length - 1][1]);
+    
+    temperatureEl.textContent = latest.toFixed(1) + " °C";
+    
+    // Update Gauge: Green < 30, Yellow up to 35, Red > 35 (approximate)
+    updateGauge(tempGaugeEl, latest, 30, 35, 50); 
+    
+    rebuildChart(tempChart, entries, v => parseFloat(v));
+    updateStats();
+    checkThresholds();
+});
+
+// ── Humidity (DHT22) ──
+db.ref("/data/humidity").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !humChart) return;
+    const entries = Object.entries(raw);
+    const latest = parseFloat(entries[entries.length - 1][1]);
+
+    humidityEl.textContent = latest.toFixed(1) + " %";
+    
+    // Update Gauge: Green < 60, Yellow up to 80, Red > 80
+    updateGauge(humGaugeEl, latest, 60, 80, 100);
+
+    rebuildChart(humChart, entries, v => parseFloat(v));
+    updateStats();
+    checkThresholds();
+});
+
+// ── Light (MH-Sensor) ──
+db.ref("/data/light").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !lightChart) return;
+    const entries = Object.entries(raw);
+    const latest = parseInt(entries[entries.length - 1][1], 10);
+
+    lightEl.textContent = latest + " %";
+    
+    // Update Gauge
+    updateGauge(lightGaugeEl, latest, 50, 85, 100);
+
+    rebuildChart(lightChart, entries, v => parseInt(v, 10));
+    updateStats();
+    checkThresholds();
+});
+
+// ── Feed Weight (HX711) ──
+db.ref("/data/weight").limitToLast(20).on("value", (snapshot) => {
+    const raw = snapshot.val();
+    if (!raw || !feedChart) return;
+    const entries = Object.entries(raw);
+    const latest = Math.max(0, parseFloat(entries[entries.length - 1][1]));
+
+    feedEl.textContent = latest.toFixed(1) + " g";
+    
+    // Update Gauge: Logic is inverted for feed (Red when LOW), 
+    // but for the UI bar we'll show fill level relative to 5kg
+    updateGauge(feedGaugeEl, latest, 1000, 4000, 5000);
+
+    rebuildChart(feedChart, entries, v => Math.max(0, parseFloat(v)));
+    updateStats();
+    checkThresholds();
+});
+
+
+

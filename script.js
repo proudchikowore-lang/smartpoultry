@@ -173,7 +173,7 @@ function checkThresholds() {
         showToast(`Light level out of range: ${light} %`, "warning");
 
     if (feed < thresholds.feedMin || feed > thresholds.feedMax)
-        showToast(`feed level out of range: ${light} %`, "warning");
+        showToast(`Feed level out of range: ${feed} g`, "warning");
 
 }
 
